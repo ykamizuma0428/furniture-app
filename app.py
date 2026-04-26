@@ -28,18 +28,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── パスワード保護 ───────────────────────────────────────────
 def check_password():
     correct = st.secrets.get("APP_PASSWORD", "")
     if not correct:
-        return True  # パスワード未設定なら通す（ローカル開発用）
-
+        return True
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
-
     if st.session_state.authenticated:
         return True
-
     st.title("🔐 家具セレクター")
     st.markdown("### パスワードを入力してください")
     pw = st.text_input("パスワード", type="password", placeholder="パスワードを入力")
@@ -54,18 +50,15 @@ def check_password():
 if not check_password():
     st.stop()
 
-# ─── APIキー（secretsから取得） ────────────────────────────────
 api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
 if not api_key:
-    st.error("⚠️ APIキーが設定されていません。管理者に連絡してください")
+    st.error("⚠️ APIキーが設定されていません。管理者に連絡してください。")
     st.stop()
 
-# ─── ヘッダー ────────────────────────────────────────────────
 st.title("🛋️ 家具セレクター")
 st.markdown("**間取り図と写真を見て、ぴったりの家具を提案します。**")
 st.divider()
 
-# ─── 画像アップロード ─────────────────────────────────────────
 col1, col2 = st.columns(2)
 
 with col1:
@@ -96,7 +89,6 @@ with col2:
 
 st.divider()
 
-# ─── 予算・必需品 ─────────────────────────────────────────────
 col3, col4 = st.columns(2)
 
 with col3:
@@ -122,7 +114,6 @@ with col4:
 
 st.divider()
 
-# ─── 提案ボタン ───────────────────────────────────────────────
 clicked = st.button("✨ 家具を提案してもらう", use_container_width=True)
 
 if clicked:
@@ -130,21 +121,26 @@ if clicked:
         st.error("⚠️ 間取り図か部屋の写真を少なくとも1枚アップロードしてください。")
         st.stop()
 
-    # 画像をBase64に変換
-    content: list = []
+    def safe_media_type(file):
+        ext = (file.name or "").lower().rsplit(".", 1)[-1]
+        return {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
+
+    content = []
 
     if floor_plan:
-        data = base64.standard_b64encode(floor_plan.read()).decode()
+        floor_plan.seek(0)
+        data = base64.standard_b64encode(floor_plan.read()).decode("ascii")
         content += [
-            {"type": "image", "source": {"type": "base64", "media_type": floor_plan.type or "image/jpeg", "data": data}},
-            {"type": "text", "text": "↑ 間取り図"},
+            {"type": "image", "source": {"type": "base64", "media_type": safe_media_type(floor_plan), "data": data}},
+            {"type": "text", "text": "floor plan"},
         ]
 
     for i, photo in enumerate(room_photos[:3]):
-        data = base64.standard_b64encode(photo.read()).decode()
+        photo.seek(0)
+        data = base64.standard_b64encode(photo.read()).decode("ascii")
         content += [
-            {"type": "image", "source": {"type": "base64", "media_type": photo.type or "image/jpeg", "data": data}},
-            {"type": "text", "text": f"↑ 部屋の写真 {i + 1}"},
+            {"type": "image", "source": {"type": "base64", "media_type": safe_media_type(photo), "data": data}},
+            {"type": "text", "text": f"room photo {i + 1}"},
         ]
 
     needs = must_haves.strip() or "特になし"
@@ -163,7 +159,7 @@ if clicked:
 ### 🛋️ おすすめ家具リスト
 各家具について：
 - **家具の名前**
-  - 予算目墉：〇〇円〜〇〇円
+  - 予算目安：〇〇円〜〇〇円
   - おすすめの理由（この部屋に合う理由）
   - 選ぶときのポイント
   - 参考ブランド（ニトリ・IKEA・無印良品など身近なお店）
