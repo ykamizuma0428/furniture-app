@@ -1,0 +1,2 @@
+# APIキーが入ったファイルはGitHubにアップしない
+.streamlit/secrets.toml
